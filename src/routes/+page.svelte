@@ -1,65 +1,31 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
+	import { useSearchParams } from 'runed/kit';
+	import * as v from 'valibot';
 
-	// ── Defaults ──────────────────────────────────────────────────────────────
-	const DEFAULTS = {
-		remainingAmount: 2_000_000,
-		remainingYears: 20,
-		interestRate: 4.0,
-		contributionRate: 0.6,
-		extraPayment: 200_000,
-		fee: 0
-	} as const;
-
-	function parseNumber(params: URLSearchParams, key: string, def: number): number {
-		const v = params.get(key);
-		if (!v) return def;
-		const n = Number(v);
-		return Number.isFinite(n) ? n : def;
-	}
-
-	// ── Input state (initialised from URL query params when in the browser) ───
-	const urlParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
-
-	let remainingAmount = $state(parseNumber(urlParams, 'remainingAmount', DEFAULTS.remainingAmount));
-	let remainingYears = $state(parseNumber(urlParams, 'remainingYears', DEFAULTS.remainingYears));
-	let interestRate = $state(parseNumber(urlParams, 'interestRate', DEFAULTS.interestRate));
-	let contributionRate = $state(parseNumber(urlParams, 'contributionRate', DEFAULTS.contributionRate));
-	let extraPayment = $state(parseNumber(urlParams, 'extraPayment', DEFAULTS.extraPayment));
-	let fee = $state(parseNumber(urlParams, 'fee', DEFAULTS.fee));
-
-	// ── Sync state → URL (only non-default values to keep links clean) ────────
-	$effect(() => {
-		if (!browser) return;
-		const params = new URLSearchParams();
-		if (remainingAmount !== DEFAULTS.remainingAmount)
-			params.set('remainingAmount', String(remainingAmount));
-		if (remainingYears !== DEFAULTS.remainingYears)
-			params.set('remainingYears', String(remainingYears));
-		if (interestRate !== DEFAULTS.interestRate) params.set('interestRate', String(interestRate));
-		if (contributionRate !== DEFAULTS.contributionRate) params.set('contributionRate', String(contributionRate));
-		if (extraPayment !== DEFAULTS.extraPayment) params.set('extraPayment', String(extraPayment));
-		if (fee !== DEFAULTS.fee) params.set('fee', String(fee));
-		const qs = params.toString();
-		const hash = location.hash;
-		history.replaceState(
-			history.state,
-			'',
-			qs ? `${location.pathname}?${qs}${hash}` : location.pathname + hash
-		);
+	// ── Schema (defines URL params, types, and fallback defaults) ────────────
+	const schema = v.object({
+		remainingAmount: v.optional(v.fallback(v.number(), 2_000_000), 2_000_000),
+		remainingYears: v.optional(v.fallback(v.number(), 20), 20),
+		interestRate: v.optional(v.fallback(v.number(), 4.0), 4.0),
+		contributionRate: v.optional(v.fallback(v.number(), 0.6), 0.6),
+		extraPayment: v.optional(v.fallback(v.number(), 200_000), 200_000),
+		fee: v.optional(v.fallback(v.number(), 0), 0)
 	});
+
+	// ── Reactive URL search params (non-default values only; no history spam) ─
+	const params = useSearchParams(schema, { pushHistory: false });
 
 	// ── Derived result ────────────────────────────────────────────────────────
 	let result = $derived(
-		remainingAmount > 0 && remainingYears > 0 && extraPayment > 0
+		params.remainingAmount > 0 && params.remainingYears > 0 && params.extraPayment > 0
 			? calculateMortgage({
-					remainingAmount,
-					remainingYears,
-					interestRate,
-					contributionRate,
-					extraPayment,
-					fee
+					remainingAmount: params.remainingAmount,
+					remainingYears: params.remainingYears,
+					interestRate: params.interestRate,
+					contributionRate: params.contributionRate,
+					extraPayment: params.extraPayment,
+					fee: params.fee
 				})
 			: null
 	);
@@ -110,7 +76,7 @@
 						type="number"
 						min="0"
 						step="10000"
-						bind:value={remainingAmount}
+						bind:value={params.remainingAmount}
 					/>
 					<span class="unit">kr.</span>
 				</div>
@@ -125,7 +91,7 @@
 						min="1"
 						max="30"
 						step="1"
-						bind:value={remainingYears}
+						bind:value={params.remainingYears}
 					/>
 					<span class="unit">år</span>
 				</div>
@@ -140,7 +106,7 @@
 						min="0"
 						max="20"
 						step="0.1"
-						bind:value={interestRate}
+						bind:value={params.interestRate}
 					/>
 					<span class="unit">% p.a.</span>
 				</div>
@@ -155,7 +121,7 @@
 						min="0"
 						max="5"
 						step="0.01"
-						bind:value={contributionRate}
+						bind:value={params.contributionRate}
 					/>
 					<span class="unit">% p.a.</span>
 				</div>
@@ -171,7 +137,7 @@
 						type="number"
 						min="0"
 						step="10000"
-						bind:value={extraPayment}
+						bind:value={params.extraPayment}
 					/>
 					<span class="unit">kr.</span>
 				</div>
@@ -185,7 +151,7 @@
 						type="number"
 						min="0"
 						step="100"
-						bind:value={fee}
+						bind:value={params.fee}
 					/>
 					<span class="unit">kr.</span>
 				</div>
