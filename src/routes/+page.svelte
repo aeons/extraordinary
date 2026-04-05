@@ -445,6 +445,7 @@
 		background: #f7fafc;
 		border-radius: 8px;
 		padding: 0.75rem 1rem;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 	}
 
 	.stat dt {
@@ -464,6 +465,7 @@
 
 	.stat.accent {
 		background: #ebf8ff;
+		box-shadow: 0 2px 8px rgba(49, 130, 206, 0.35);
 	}
 
 	.stat.accent dd {
@@ -472,6 +474,7 @@
 
 	.stat.positive {
 		background: #f0fff4;
+		box-shadow: 0 2px 8px rgba(56, 161, 105, 0.35);
 	}
 
 	.stat.positive dd {
@@ -480,6 +483,7 @@
 
 	.stat.negative {
 		background: #fff5f5;
+		box-shadow: 0 2px 8px rgba(229, 62, 62, 0.35);
 	}
 
 	.stat.negative dd {
