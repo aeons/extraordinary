@@ -1,13 +1,49 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
 
-	// ── Input state ───────────────────────────────────────────────────────────
-	let remainingAmount = $state(2_000_000);
-	let remainingYears = $state(20);
-	let interestRate = $state(4.0);
-	let bidrag = $state(0.6);
-	let extraPayment = $state(200_000);
-	let fee = $state(0);
+	// ── Defaults ──────────────────────────────────────────────────────────────
+	const DEFAULTS = {
+		remainingAmount: 2_000_000,
+		remainingYears: 20,
+		interestRate: 4.0,
+		bidrag: 0.6,
+		extraPayment: 200_000,
+		fee: 0
+	} as const;
+
+	function parseNumber(params: URLSearchParams, key: string, def: number): number {
+		const v = params.get(key);
+		if (!v) return def;
+		const n = Number(v);
+		return Number.isFinite(n) ? n : def;
+	}
+
+	// ── Input state (initialised from URL query params when in the browser) ───
+	const urlParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
+
+	let remainingAmount = $state(parseNumber(urlParams, 'remainingAmount', DEFAULTS.remainingAmount));
+	let remainingYears = $state(parseNumber(urlParams, 'remainingYears', DEFAULTS.remainingYears));
+	let interestRate = $state(parseNumber(urlParams, 'interestRate', DEFAULTS.interestRate));
+	let bidrag = $state(parseNumber(urlParams, 'bidrag', DEFAULTS.bidrag));
+	let extraPayment = $state(parseNumber(urlParams, 'extraPayment', DEFAULTS.extraPayment));
+	let fee = $state(parseNumber(urlParams, 'fee', DEFAULTS.fee));
+
+	// ── Sync state → URL (only non-default values to keep links clean) ────────
+	$effect(() => {
+		if (!browser) return;
+		const params = new URLSearchParams();
+		if (remainingAmount !== DEFAULTS.remainingAmount)
+			params.set('remainingAmount', String(remainingAmount));
+		if (remainingYears !== DEFAULTS.remainingYears)
+			params.set('remainingYears', String(remainingYears));
+		if (interestRate !== DEFAULTS.interestRate) params.set('interestRate', String(interestRate));
+		if (bidrag !== DEFAULTS.bidrag) params.set('bidrag', String(bidrag));
+		if (extraPayment !== DEFAULTS.extraPayment) params.set('extraPayment', String(extraPayment));
+		if (fee !== DEFAULTS.fee) params.set('fee', String(fee));
+		const qs = params.toString();
+		history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
+	});
 
 	// ── Derived result ────────────────────────────────────────────────────────
 	let result = $derived(
