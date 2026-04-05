@@ -1,24 +1,31 @@
 <script lang="ts">
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
+	import { useSearchParams } from 'runed/kit';
+	import * as v from 'valibot';
 
-	// ── Input state ───────────────────────────────────────────────────────────
-	let remainingAmount = $state(2_000_000);
-	let remainingYears = $state(20);
-	let interestRate = $state(4.0);
-	let bidrag = $state(0.6);
-	let extraPayment = $state(200_000);
-	let fee = $state(0);
+	// ── Schema (defines URL params, types, and fallback defaults) ────────────
+	const schema = v.object({
+		remainingAmount: v.optional(v.fallback(v.number(), 2_000_000), 2_000_000),
+		remainingYears: v.optional(v.fallback(v.number(), 20), 20),
+		interestRate: v.optional(v.fallback(v.number(), 4.0), 4.0),
+		contributionRate: v.optional(v.fallback(v.number(), 0.6), 0.6),
+		extraPayment: v.optional(v.fallback(v.number(), 200_000), 200_000),
+		fee: v.optional(v.fallback(v.number(), 0), 0)
+	});
+
+	// ── Reactive URL search params (non-default values only; no history spam) ─
+	const params = useSearchParams(schema, { pushHistory: false });
 
 	// ── Derived result ────────────────────────────────────────────────────────
 	let result = $derived(
-		remainingAmount > 0 && remainingYears > 0 && extraPayment > 0
+		params.remainingAmount > 0 && params.remainingYears > 0 && params.extraPayment > 0
 			? calculateMortgage({
-					remainingAmount,
-					remainingYears,
-					interestRate,
-					bidrag,
-					extraPayment,
-					fee
+					remainingAmount: params.remainingAmount,
+					remainingYears: params.remainingYears,
+					interestRate: params.interestRate,
+					contributionRate: params.contributionRate,
+					extraPayment: params.extraPayment,
+					fee: params.fee
 				})
 			: null
 	);
@@ -69,7 +76,7 @@
 						type="number"
 						min="0"
 						step="10000"
-						bind:value={remainingAmount}
+						bind:value={params.remainingAmount}
 					/>
 					<span class="unit">kr.</span>
 				</div>
@@ -84,7 +91,7 @@
 						min="1"
 						max="30"
 						step="1"
-						bind:value={remainingYears}
+						bind:value={params.remainingYears}
 					/>
 					<span class="unit">år</span>
 				</div>
@@ -99,22 +106,22 @@
 						min="0"
 						max="20"
 						step="0.1"
-						bind:value={interestRate}
+						bind:value={params.interestRate}
 					/>
 					<span class="unit">% p.a.</span>
 				</div>
 			</div>
 
 			<div class="field">
-				<label for="bidrag">Bidragssats</label>
+				<label for="contributionRate">Bidragssats</label>
 				<div class="input-wrap">
 					<input
-						id="bidrag"
+						id="contributionRate"
 						type="number"
 						min="0"
 						max="5"
 						step="0.01"
-						bind:value={bidrag}
+						bind:value={params.contributionRate}
 					/>
 					<span class="unit">% p.a.</span>
 				</div>
@@ -130,7 +137,7 @@
 						type="number"
 						min="0"
 						step="10000"
-						bind:value={extraPayment}
+						bind:value={params.extraPayment}
 					/>
 					<span class="unit">kr.</span>
 				</div>
@@ -144,7 +151,7 @@
 						type="number"
 						min="0"
 						step="100"
-						bind:value={fee}
+						bind:value={params.fee}
 					/>
 					<span class="unit">kr.</span>
 				</div>
