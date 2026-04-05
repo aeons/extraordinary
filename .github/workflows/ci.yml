@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: lts
+          cache: true
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Lint
+        run: vp lint
+
+      - name: Format
+        run: vp fmt --check
