@@ -445,7 +445,7 @@
 		background: #f7fafc;
 		border-radius: 8px;
 		padding: 0.75rem 1rem;
-		border-left: 4px solid transparent;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 	}
 
 	.stat dt {
@@ -464,8 +464,8 @@
 	}
 
 	.stat.accent {
-		border-left-color: #3182ce;
 		background: #ebf8ff;
+		box-shadow: 0 2px 8px rgba(49, 130, 206, 0.35);
 	}
 
 	.stat.accent dd {
@@ -473,8 +473,8 @@
 	}
 
 	.stat.positive {
-		border-left-color: #38a169;
 		background: #f0fff4;
+		box-shadow: 0 2px 8px rgba(56, 161, 105, 0.35);
 	}
 
 	.stat.positive dd {
@@ -482,8 +482,8 @@
 	}
 
 	.stat.negative {
-		border-left-color: #e53e3e;
 		background: #fff5f5;
+		box-shadow: 0 2px 8px rgba(229, 62, 62, 0.35);
 	}
 
 	.stat.negative dd {
