@@ -7,7 +7,7 @@
 		remainingAmount: 2_000_000,
 		remainingYears: 20,
 		interestRate: 4.0,
-		bidrag: 0.6,
+		contributionRate: 0.6,
 		extraPayment: 200_000,
 		fee: 0
 	} as const;
@@ -25,7 +25,7 @@
 	let remainingAmount = $state(parseNumber(urlParams, 'remainingAmount', DEFAULTS.remainingAmount));
 	let remainingYears = $state(parseNumber(urlParams, 'remainingYears', DEFAULTS.remainingYears));
 	let interestRate = $state(parseNumber(urlParams, 'interestRate', DEFAULTS.interestRate));
-	let bidrag = $state(parseNumber(urlParams, 'bidrag', DEFAULTS.bidrag));
+	let contributionRate = $state(parseNumber(urlParams, 'contributionRate', DEFAULTS.contributionRate));
 	let extraPayment = $state(parseNumber(urlParams, 'extraPayment', DEFAULTS.extraPayment));
 	let fee = $state(parseNumber(urlParams, 'fee', DEFAULTS.fee));
 
@@ -38,7 +38,7 @@
 		if (remainingYears !== DEFAULTS.remainingYears)
 			params.set('remainingYears', String(remainingYears));
 		if (interestRate !== DEFAULTS.interestRate) params.set('interestRate', String(interestRate));
-		if (bidrag !== DEFAULTS.bidrag) params.set('bidrag', String(bidrag));
+		if (contributionRate !== DEFAULTS.contributionRate) params.set('contributionRate', String(contributionRate));
 		if (extraPayment !== DEFAULTS.extraPayment) params.set('extraPayment', String(extraPayment));
 		if (fee !== DEFAULTS.fee) params.set('fee', String(fee));
 		const qs = params.toString();
@@ -57,7 +57,7 @@
 					remainingAmount,
 					remainingYears,
 					interestRate,
-					bidrag,
+					contributionRate,
 					extraPayment,
 					fee
 				})
@@ -147,15 +147,15 @@
 			</div>
 
 			<div class="field">
-				<label for="bidrag">Bidragssats</label>
+				<label for="contributionRate">Bidragssats</label>
 				<div class="input-wrap">
 					<input
-						id="bidrag"
+						id="contributionRate"
 						type="number"
 						min="0"
 						max="5"
 						step="0.01"
-						bind:value={bidrag}
+						bind:value={contributionRate}
 					/>
 					<span class="unit">% p.a.</span>
 				</div>

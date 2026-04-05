@@ -2,8 +2,8 @@
  * Mortgage calculation utilities for Danish extraordinary payment calculator.
  *
  * Danish mortgages (realkreditlån) are annuity loans paid quarterly.
- * Payments consist of principal repayment, interest (rente), and service fee (bidrag).
- * Only the interest portion is tax-deductible (rentefradrag), not the bidrag.
+ * Payments consist of principal repayment, interest (rente), and contribution fee (bidrag).
+ * Only the interest portion is tax-deductible (rentefradrag), not the contribution fee.
  */
 
 /**
@@ -21,8 +21,8 @@ export interface MortgageInput {
 	remainingYears: number;
 	/** Annual interest rate in percent, e.g. 4 for 4% (Rente) */
 	interestRate: number;
-	/** Annual bidrag (service fee) rate in percent, e.g. 0.6 for 0.6% (Bidragsrente) */
-	bidrag: number;
+	/** Annual contribution rate (service fee) in percent, e.g. 0.6 for 0.6% (Bidragsrente) */
+	contributionRate: number;
 	/** Extraordinary payment amount in DKK (Ekstraordinær betaling) */
 	extraPayment: number;
 	/** Optional fee for the extraordinary payment in DKK (Gebyr) */
@@ -70,7 +70,7 @@ export interface MortgageResult {
 
 /**
  * Computes the quarterly annuity payment for a loan using the combined rate
- * (interest + bidrag).
+ * (interest + contribution rate).
  */
 function quarterlyPayment(principal: number, quarterlyRate: number, nQuarters: number): number {
 	if (principal <= 0) return 0;
@@ -79,7 +79,7 @@ function quarterlyPayment(principal: number, quarterlyRate: number, nQuarters: n
 }
 
 /**
- * Computes the total interest and bidrag paid over the full life of an annuity loan.
+ * Computes the total interest and contribution fees paid over the full life of an annuity loan.
  */
 function totalCostOverLife(
 	principal: number,
@@ -113,12 +113,12 @@ function quartersNeeded(
  * Loans are assumed to be quarterly-paid annuity loans (annuitetslån).
  */
 export function calculateMortgage(input: MortgageInput): MortgageResult {
-	const { remainingAmount, remainingYears, interestRate, bidrag, extraPayment, fee } = input;
+	const { remainingAmount, remainingYears, interestRate, contributionRate, extraPayment, fee } = input;
 
 	const nQuarters = Math.round(remainingYears * 4);
 	const quarterlyInterestRate = interestRate / 4 / 100;
-	const quarterlyBidragRate = bidrag / 4 / 100;
-	const combinedQuarterlyRate = quarterlyInterestRate + quarterlyBidragRate;
+	const quarterlyContributionRate = contributionRate / 4 / 100;
+	const combinedQuarterlyRate = quarterlyInterestRate + quarterlyContributionRate;
 
 	// ── Current loan ──────────────────────────────────────────────────────────
 	const currentQPayment = quarterlyPayment(remainingAmount, combinedQuarterlyRate, nQuarters);
