@@ -42,7 +42,12 @@
 		if (extraPayment !== DEFAULTS.extraPayment) params.set('extraPayment', String(extraPayment));
 		if (fee !== DEFAULTS.fee) params.set('fee', String(fee));
 		const qs = params.toString();
-		history.replaceState(history.state, '', qs ? `?${qs}` : location.pathname);
+		const hash = location.hash;
+		history.replaceState(
+			history.state,
+			'',
+			qs ? `${location.pathname}?${qs}${hash}` : location.pathname + hash
+		);
 	});
 
 	// ── Derived result ────────────────────────────────────────────────────────
