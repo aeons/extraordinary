@@ -445,7 +445,6 @@
 		background: #f7fafc;
 		border-radius: 8px;
 		padding: 0.75rem 1rem;
-		border-top: 3px solid transparent;
 	}
 
 	.stat dt {
@@ -464,7 +463,6 @@
 	}
 
 	.stat.accent {
-		border-top-color: #3182ce;
 		background: #ebf8ff;
 	}
 
@@ -473,7 +471,6 @@
 	}
 
 	.stat.positive {
-		border-top-color: #38a169;
 		background: #f0fff4;
 	}
 
@@ -482,7 +479,6 @@
 	}
 
 	.stat.negative {
-		border-top-color: #e53e3e;
 		background: #fff5f5;
 	}
 
