@@ -23,8 +23,14 @@ export interface MortgageInput {
   interestRate: number;
   /** Annual contribution rate (service fee) in percent, e.g. 0.6 for 0.6% (Bidragsrente) */
   contributionRate: number;
-  /** Extraordinary payment amount in DKK (Ekstraordinær betaling) */
+  /** Extraordinary payment face value in DKK — the amount by which the debt is reduced (Ekstraordinær betaling) */
   extraPayment: number;
+  /**
+   * Bond exchange rate (Kurs): how much you pay for 100 DKK of face value.
+   * E.g. kurs 95 means you pay 95,000 DKK to reduce the debt by 100,000 DKK.
+   * Defaults to 100 (at par).
+   */
+  kurs: number;
   /** Optional fee for the extraordinary payment in DKK (Gebyr) */
   fee: number;
 }
@@ -32,7 +38,9 @@ export interface MortgageInput {
 export interface MortgageResult {
   /** New remaining amount after extraordinary payment */
   newRemainingAmount: number;
-  /** Total cost of the extraordinary payment (extraPayment + fee) */
+  /** Actual cash paid for the extraordinary payment (extraPayment × kurs / 100) */
+  actualCashPaid: number;
+  /** Total cash outlay (actualCashPaid + fee) */
   totalCost: number;
 
   /** Current quarterly payment (principal + interest + bidrag) */
@@ -105,8 +113,15 @@ function quartersNeeded(principal: number, quarterlyRate: number, payment: numbe
  * Loans are assumed to be quarterly-paid annuity loans (annuitetslån).
  */
 export function calculateMortgage(input: MortgageInput): MortgageResult {
-  const { remainingAmount, remainingYears, interestRate, contributionRate, extraPayment, fee } =
-    input;
+  const {
+    remainingAmount,
+    remainingYears,
+    interestRate,
+    contributionRate,
+    extraPayment,
+    kurs,
+    fee,
+  } = input;
 
   const nQuarters = Math.round(remainingYears * 4);
   const quarterlyInterestRate = interestRate / 4 / 100;
@@ -119,8 +134,10 @@ export function calculateMortgage(input: MortgageInput): MortgageResult {
   const currentAnnualTaxDeduction = currentAnnualInterest * TAX_DEDUCTION_RATE;
 
   // ── After extraordinary payment ───────────────────────────────────────────
+  // The face value (extraPayment) reduces the debt; the actual cash paid is scaled by kurs.
   const newRemainingAmount = Math.max(0, remainingAmount - extraPayment);
-  const totalCost = extraPayment + fee;
+  const actualCashPaid = extraPayment * (kurs / 100);
+  const totalCost = actualCashPaid + fee;
 
   // Option 1: Same remaining term, lower quarterly payment
   const newQPaymentSameTerm = quarterlyPayment(
@@ -166,6 +183,7 @@ export function calculateMortgage(input: MortgageInput): MortgageResult {
 
   return {
     newRemainingAmount,
+    actualCashPaid,
     totalCost,
     currentQuarterlyPayment: currentQPayment,
     currentAnnualInterest,

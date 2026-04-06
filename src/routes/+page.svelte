@@ -10,6 +10,7 @@
 		interestRate: v.optional(v.fallback(v.number(), 4.0), 4.0),
 		contributionRate: v.optional(v.fallback(v.number(), 0.6), 0.6),
 		extraPayment: v.optional(v.fallback(v.number(), 200_000), 200_000),
+		kurs: v.optional(v.fallback(v.number(), 100), 100),
 		fee: v.optional(v.fallback(v.number(), 0), 0)
 	});
 
@@ -25,6 +26,7 @@
 					interestRate: params.interestRate,
 					contributionRate: params.contributionRate,
 					extraPayment: params.extraPayment,
+					kurs: params.kurs,
 					fee: params.fee
 				})
 			: null
@@ -144,6 +146,21 @@
 			</div>
 
 			<div class="field">
+				<label for="kurs">Kurs</label>
+				<div class="input-wrap">
+					<input
+						id="kurs"
+						type="number"
+						min="1"
+						max="130"
+						step="0.01"
+						bind:value={params.kurs}
+					/>
+					<span class="unit">kurs</span>
+				</div>
+			</div>
+
+			<div class="field">
 				<label for="fee">Gebyr (valgfrit)</label>
 				<div class="input-wrap">
 					<input
@@ -187,6 +204,10 @@
 						<div class="stat accent">
 							<dt>Ny restgæld</dt>
 							<dd>{dkk(result.newRemainingAmount)}</dd>
+						</div>
+						<div class="stat">
+							<dt>Faktisk betalt (kurs {num(params.kurs, 2)})</dt>
+							<dd>{dkk(result.actualCashPaid)}</dd>
 						</div>
 						<div class="stat">
 							<dt>Samlet betaling inkl. gebyr</dt>
