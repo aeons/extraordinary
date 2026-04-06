@@ -7,8 +7,8 @@ export interface BondInfo {
   orderbookId: string;
   name: string;
   isin: string;
-  /** Current kurs (market price per 100 DKK face value), or null if not available. */
-  kurs: number | null;
+  /** Current bond rate (market price per 100 DKK face value), or null if not available. */
+  bondRate: number | null;
 }
 
 export interface BondRatesResponse {
@@ -62,7 +62,7 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
             orderbookId: inst.orderbookId,
             name: inst.fullName,
             isin: inst.isin,
-            kurs: null,
+            bondRate: null,
           });
         }
       }
@@ -75,10 +75,10 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
 }
 
 /**
- * Try to get the current kurs for a bond from the Nasdaq Nordic summary endpoint.
+ * Try to get the current bond rate for a bond from the Nasdaq Nordic summary endpoint.
  * Returns null if the market is closed or data is unavailable.
  */
-async function fetchKurs(fetchFn: typeof fetch, orderbookId: string): Promise<number | null> {
+async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promise<number | null> {
   try {
     const res = await fetchFn(`${NASDAQ_API}/instruments/${orderbookId}/summary?assetClass=BONDS`, {
       headers: NASDAQ_HEADERS,
@@ -102,10 +102,10 @@ export const GET: RequestHandler = async ({ fetch }) => {
 
   const bonds = await fetchBonds(fetch);
 
-  // Fetch kurs for each bond in parallel (best-effort; null when market is closed)
+  // Fetch bond rate for each bond in parallel (best-effort; null when market is closed)
   await Promise.all(
     bonds.map(async (bond) => {
-      bond.kurs = await fetchKurs(fetch, bond.orderbookId);
+      bond.bondRate = await fetchBondRate(fetch, bond.orderbookId);
     }),
   );
 

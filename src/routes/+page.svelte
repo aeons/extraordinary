@@ -10,8 +10,8 @@
 		remainingYears: v.optional(v.fallback(v.number(), 20), 20),
 		interestRate: v.optional(v.fallback(v.number(), 4.0), 4.0),
 		contributionRate: v.optional(v.fallback(v.number(), 0.6), 0.6),
-		extraPayment: v.optional(v.fallback(v.number(), 200_000), 200_000),
-		kurs: v.optional(v.fallback(v.number(), 100), 100),
+		payment: v.optional(v.fallback(v.number(), 200_000), 200_000),
+		bondRate: v.optional(v.fallback(v.number(), 100), 100),
 		fee: v.optional(v.fallback(v.number(), 0), 0)
 	});
 
@@ -41,21 +41,21 @@
 		const select = event.currentTarget as HTMLSelectElement;
 		selectedBondId = select.value;
 		const bond = bonds.find((b) => b.orderbookId === selectedBondId);
-		if (bond?.kurs != null) {
-			params.kurs = bond.kurs;
+		if (bond?.bondRate != null) {
+			params.bondRate = bond.bondRate;
 		}
 	}
 
 	// ── Derived result ────────────────────────────────────────────────────────
 	let result = $derived(
-		params.remainingAmount > 0 && params.remainingYears > 0 && params.extraPayment > 0
+		params.remainingAmount > 0 && params.remainingYears > 0 && params.payment > 0
 			? calculateMortgage({
 					remainingAmount: params.remainingAmount,
 					remainingYears: params.remainingYears,
 					interestRate: params.interestRate,
 					contributionRate: params.contributionRate,
-					extraPayment: params.extraPayment,
-					kurs: params.kurs,
+					payment: params.payment,
+					bondRate: params.bondRate,
 					fee: params.fee
 				})
 			: null
@@ -168,30 +168,30 @@
 			<h2 class="section-divider">Ekstraordinær betaling</h2>
 
 			<div class="field">
-				<label for="extraPayment">Ekstraordinær betaling</label>
+				<label for="payment">Ekstraordinær betaling</label>
 				<div class="input-wrap">
 					<input
-						id="extraPayment"
+						id="payment"
 						type="number"
 						min="0"
 						step="10000"
-						bind:value={params.extraPayment}
+						bind:value={params.payment}
 					/>
 					<span class="unit">kr.</span>
 				</div>
 			</div>
 
 			<div class="field">
-				<label for="kurs">Kurs</label>
-				<div class="bond-kurs-row">
-					<div class="input-wrap kurs-input">
+				<label for="bondRate">Kurs</label>
+				<div class="bond-rate-row">
+					<div class="input-wrap bond-rate-input">
 						<input
-							id="kurs"
+							id="bondRate"
 							type="number"
 							min="1"
 							max="130"
 							step="0.01"
-							bind:value={params.kurs}
+							bind:value={params.bondRate}
 						/>
 					</div>
 					<button
@@ -223,7 +223,7 @@
 							<option value="">– Vælg obligation –</option>
 							{#each bonds as bond}
 								<option value={bond.orderbookId}>
-									{bond.name}{bond.kurs != null ? ` (kurs ${num(bond.kurs, 2)})` : ''}
+									{bond.name}{bond.bondRate != null ? ` (kurs ${num(bond.bondRate, 2)})` : ''}
 								</option>
 							{/each}
 						</select>
@@ -281,13 +281,9 @@
 							<dt>Ny restgæld</dt>
 							<dd>{dkk(result.newRemainingAmount)}</dd>
 						</div>
-						<div class="stat">
-							<dt>Faktisk betalt (kurs {num(params.kurs, 2)})</dt>
-							<dd>{dkk(result.actualCashPaid)}</dd>
-						</div>
-						<div class="stat">
-							<dt>Samlet betaling inkl. gebyr</dt>
-							<dd>{dkk(result.totalCost)}</dd>
+						<div class="stat positive">
+							<dt>Gæld reduceret med (kurs {num(params.bondRate, 2)})</dt>
+							<dd>{dkk(result.debtReduction)}</dd>
 						</div>
 					</dl>
 				</section>
@@ -518,14 +514,14 @@
 		border-left: 1.5px solid #cbd5e0;
 	}
 
-	/* ── Bond kurs row ────────────────────────────────────────────────────── */
-	.bond-kurs-row {
+	/* ── Bond rate row ────────────────────────────────────────────────────── */
+	.bond-rate-row {
 		display: flex;
 		gap: 0.5rem;
 		align-items: stretch;
 	}
 
-	.kurs-input {
+	.bond-rate-input {
 		flex: 1;
 	}
 
