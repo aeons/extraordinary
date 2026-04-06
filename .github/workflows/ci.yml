@@ -28,5 +28,8 @@ jobs:
       - name: Format
         run: vp fmt --check
 
+      - name: Knip
+        run: vp exec knip
+
       - name: Test
         run: vp test
