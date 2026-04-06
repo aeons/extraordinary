@@ -118,7 +118,7 @@ async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promis
     if (!lastSalePrice) return null;
 
     // Format is "DKK 96.475" — take the last whitespace-delimited token.
-    const priceStr = lastSalePrice.split(" ").at(-1) ?? "";
+    const priceStr = lastSalePrice.trim().split(/\s+/).pop() ?? "";
     const parsed = parseFloat(priceStr);
     return isNaN(parsed) ? null : parsed;
   } catch {

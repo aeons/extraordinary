@@ -27,6 +27,8 @@
 	// ── Bond rate input display state ─────────────────────────────────────────
 	// Decoupled from params so clearing the input doesn't trigger the valibot
 	// fallback and snap the value back to 100 before the user finishes typing.
+	// `undefined` represents an empty / in-progress input (number inputs yield
+	// undefined when the field is blank via bind:value).
 	let bondRateDisplay = $state<number | undefined>(params.bondRate);
 
 	// Keep display in sync when params change from an external source (e.g. a
@@ -204,11 +206,7 @@
 							step="0.01"
 							bind:value={bondRateDisplay}
 							oninput={() => {
-								if (
-									bondRateDisplay !== undefined &&
-									Number.isFinite(bondRateDisplay) &&
-									bondRateDisplay > 0
-								) {
+								if (bondRateDisplay !== undefined && bondRateDisplay > 0) {
 									params.bondRate = bondRateDisplay;
 								}
 							}}
