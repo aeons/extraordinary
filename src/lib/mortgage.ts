@@ -43,6 +43,12 @@ export interface MortgageResult {
   debtReduction: number;
   /** New remaining amount after extraordinary payment */
   newRemainingAmount: number;
+  /**
+   * Savings from buying bonds below (or above) par: debtReduction minus net cash paid.
+   * Positive when bond rate < 100 (you pay less than the face value of debt eliminated).
+   * Zero at par (bond rate = 100). Negative when bond rate > 100.
+   */
+  bondRateSavings: number;
 
   /** Current quarterly payment (principal + interest + bidrag) */
   currentQuarterlyPayment: number;
@@ -141,6 +147,7 @@ export function calculateMortgage(input: MortgageInput): MortgageResult {
   const netCash = Math.max(0, payment - fee);
   const debtReduction = bondRate > 0 ? (netCash * 100) / bondRate : 0;
   const newRemainingAmount = Math.max(0, remainingAmount - debtReduction);
+  const bondRateSavings = debtReduction - netCash;
 
   // Option 1: Same remaining term, lower quarterly payment
   const newQPaymentSameTerm = quarterlyPayment(
@@ -187,6 +194,7 @@ export function calculateMortgage(input: MortgageInput): MortgageResult {
   return {
     debtReduction,
     newRemainingAmount,
+    bondRateSavings,
     currentQuarterlyPayment: currentQPayment,
     currentAnnualInterest,
     currentAnnualTaxDeduction,
