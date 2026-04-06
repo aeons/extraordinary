@@ -333,6 +333,12 @@
 							<dt>Samlet rentebesparelse</dt>
 							<dd>{dkk(result.totalInterestSavedSameTerm)}</dd>
 						</div>
+						{#if result.bondRateSavings !== 0}
+							<div class="stat {result.bondRateSavings > 0 ? 'positive' : 'negative'}">
+								<dt>Kursgevinst (kurs {num(params.bondRate, 2)})</dt>
+								<dd>{sign(result.bondRateSavings)}{dkk(result.bondRateSavings)}</dd>
+							</div>
+						{/if}
 					</dl>
 				</section>
 
@@ -362,6 +368,12 @@
 							<dt>Samlet rentebesparelse</dt>
 							<dd>{dkk(result.totalInterestSavedSamePayment)}</dd>
 						</div>
+						{#if result.bondRateSavings !== 0}
+							<div class="stat {result.bondRateSavings > 0 ? 'positive' : 'negative'}">
+								<dt>Kursgevinst (kurs {num(params.bondRate, 2)})</dt>
+								<dd>{sign(result.bondRateSavings)}{dkk(result.bondRateSavings)}</dd>
+							</div>
+						{/if}
 					</dl>
 				</section>
 

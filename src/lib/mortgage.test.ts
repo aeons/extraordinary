@@ -173,5 +173,34 @@ describe("calculateMortgage", () => {
       const belowPar = calculateMortgage({ ...baseInput, payment: 200_000, bondRate: 90, fee: 0 });
       expect(belowPar.debtReduction).toBeGreaterThan(atPar.debtReduction);
     });
+
+    it("bondRateSavings is zero at par (bond rate 100)", () => {
+      const result = calculateMortgage({ ...baseInput, payment: 200_000, bondRate: 100, fee: 0 });
+      expect(result.bondRateSavings).toBeCloseTo(0, 6);
+    });
+
+    it("bondRateSavings is positive when bond rate is below par", () => {
+      // bondRate 95: pay 95_000, reduce debt by 100_000 → savings = 5_000
+      const result = calculateMortgage({ ...baseInput, payment: 95_000, bondRate: 95, fee: 0 });
+      expect(result.bondRateSavings).toBeCloseTo(100_000 - 95_000, 4);
+    });
+
+    it("bondRateSavings is negative when bond rate is above par", () => {
+      // bondRate 105: pay 105_000, reduce debt by ~100_000 → savings ≈ -5_000
+      const result = calculateMortgage({ ...baseInput, payment: 105_000, bondRate: 105, fee: 0 });
+      expect(result.bondRateSavings).toBeLessThan(0);
+      expect(result.bondRateSavings).toBeCloseTo((105_000 * 100) / 105 - 105_000, 4);
+    });
+
+    it("bondRateSavings equals debtReduction minus net cash", () => {
+      const result = calculateMortgage({
+        ...baseInput,
+        payment: 200_000,
+        bondRate: 95,
+        fee: 5_000,
+      });
+      const netCash = 200_000 - 5_000;
+      expect(result.bondRateSavings).toBeCloseTo(result.debtReduction - netCash, 6);
+    });
   });
 });
