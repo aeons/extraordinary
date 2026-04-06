@@ -41,6 +41,27 @@ const NASDAQ_HEADERS = {
 const NASDAQ_API = "https://api.nasdaq.com/api/nordic";
 
 /**
+ * Maximum number of concurrent bond-rate requests.
+ * Keeping this low avoids triggering Akamai rate-limiting on the Nasdaq Nordic API,
+ * which would block the IP and cause all subsequent requests — including the search
+ * requests in the next build — to return 403 and produce empty bond data.
+ */
+const RATE_FETCH_CONCURRENCY = 5;
+
+/**
+ * Run an async task for each item, with at most `limit` tasks running at once.
+ */
+async function withConcurrencyLimit<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  for (let i = 0; i < items.length; i += limit) {
+    await Promise.all(items.slice(i, i + limit).map(fn));
+  }
+}
+
+/**
  * Fetch a list of Danish mortgage bonds from Nasdaq Nordic.
  * Runs server-side at build time (prerendered), so CORS is not an issue.
  */
@@ -53,7 +74,10 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
       const res = await fetchFn(`${NASDAQ_API}/search?searchText=${encodeURIComponent(term)}`, {
         headers: NASDAQ_HEADERS,
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.error(`[bond-rates] search "${term}" failed: HTTP ${res.status}`);
+        continue;
+      }
 
       const data: {
         data: Array<{
@@ -86,8 +110,8 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
           });
         }
       }
-    } catch {
-      // Skip failed searches silently
+    } catch (err) {
+      console.error(`[bond-rates] search "${term}" threw:`, err);
     }
   }
 
@@ -108,7 +132,10 @@ async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promis
       `${NASDAQ_API}/instruments/${orderbookId}/chart?assetClass=MORTGAGE_BONDS`,
       { headers: NASDAQ_HEADERS },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[bond-rates] chart fetch for ${orderbookId} failed: HTTP ${res.status}`);
+      return null;
+    }
 
     const data: {
       data: { chartData: { lastSalePrice?: string } | null } | null;
@@ -121,7 +148,8 @@ async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promis
     const priceStr = lastSalePrice.trim().split(/\s+/).pop() ?? "";
     const parsed = parseFloat(priceStr);
     return isNaN(parsed) ? null : parsed;
-  } catch {
+  } catch (err) {
+    console.error(`[bond-rates] chart fetch for ${orderbookId} threw:`, err);
     return null;
   }
 }
@@ -131,12 +159,12 @@ export const GET: RequestHandler = async ({ fetch }) => {
 
   const bonds = await fetchBonds(fetch);
 
-  // Fetch bond rate for each bond in parallel (best-effort; null when market is closed)
-  await Promise.all(
-    bonds.map(async (bond) => {
-      bond.bondRate = await fetchBondRate(fetch, bond.orderbookId);
-    }),
-  );
+  // Fetch bond rate for each bond with a concurrency limit (best-effort; null when market is closed).
+  // Without the limit, all bonds would be fetched in parallel, which reliably triggers
+  // Akamai rate-limiting and leaves the CI runner IP blocked for the next build.
+  await withConcurrencyLimit(bonds, RATE_FETCH_CONCURRENCY, async (bond) => {
+    bond.bondRate = await fetchBondRate(fetch, bond.orderbookId);
+  });
 
   const response: BondRatesResponse = { bonds, fetchedAt };
   return json(response);
