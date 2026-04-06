@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
+	import { base } from '$app/paths';
 	import { useSearchParams } from 'runed/kit';
 	import * as v from 'valibot';
 	import type { BondInfo, BondRatesResponse } from './api/bond-rates/+server';
@@ -24,9 +25,22 @@
 	let bondRatesError = $state<string | null>(null);
 	let selectedBondId = $state('');
 
+	// ── Bond rate input display state ─────────────────────────────────────────
+	// Decoupled from params so clearing the input doesn't trigger the valibot
+	// fallback and snap the value back to 100 before the user finishes typing.
+	// `undefined` represents an empty / in-progress input (number inputs yield
+	// undefined when the field is blank via bind:value).
+	let bondRateDisplay = $state<number | undefined>(params.bondRate);
+
+	// Keep display in sync when params change from an external source (e.g. a
+	// bond is selected from the dropdown, or the URL changes).
+	$effect(() => {
+		bondRateDisplay = params.bondRate;
+	});
+
 	async function loadBondRates() {
 		try {
-			const res = await fetch('/api/bond-rates');
+			const res = await fetch(`${base}/api/bond-rates`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data: BondRatesResponse = await res.json();
 			bonds = data.bonds;
@@ -191,7 +205,12 @@
 							min="1"
 							max="130"
 							step="0.01"
-							bind:value={params.bondRate}
+							bind:value={bondRateDisplay}
+							oninput={() => {
+								if (bondRateDisplay !== undefined && bondRateDisplay > 0) {
+									params.bondRate = bondRateDisplay;
+								}
+							}}
 						/>
 					</div>
 					<button

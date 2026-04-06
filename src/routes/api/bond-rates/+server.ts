@@ -18,10 +18,18 @@ export interface BondRatesResponse {
 }
 
 /**
- * Search terms used to find Danish mortgage bonds on Nasdaq Copenhagen.
- * We search for the main issuers of Danish realkredit bonds.
+ * Search terms used to find Danish mortgage bonds (MORTGAGE_BONDS asset class) on Nasdaq Copenhagen.
+ * Short abbreviations are used because they match bond symbol names that carry the
+ * MORTGAGE_BONDS asset class; full company names would instead return bonds in the
+ * "Others" group (assetClass=""), which have no price data available.
+ *
+ * Coverage:
+ *  - "SDRO"  → Nordea Kredit (NDASDRO) + Realkredit Danmark (RDSDRO)
+ *  - "NYK"   → Nykredit Realkredit
+ *  - "BRF"   → BRFkredit
+ *  - "DLR"   → DLR Kredit
  */
-const SEARCH_TERMS = ["Realkredit Danmark", "Nykredit", "BRFkredit", "DLR", "Nordea Kredit"];
+const SEARCH_TERMS = ["SDRO", "NYK", "BRF", "DLR"];
 
 /** Common browser-like request headers required by the Nasdaq Nordic API. */
 const NASDAQ_HEADERS = {
@@ -49,13 +57,25 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
 
       const data: {
         data: Array<{
-          instruments: Array<{ orderbookId: string; fullName: string; isin: string }>;
+          instruments: Array<{
+            orderbookId: string;
+            fullName: string;
+            isin: string;
+            assetClass: string;
+          }>;
         }> | null;
       } = await res.json();
       if (!data.data) continue;
 
       for (const group of data.data) {
         for (const inst of group.instruments) {
+          // Only include bonds that have price data available on Nasdaq Nordic.
+          // Bonds with assetClass="" ("Others" group) are OTC-listed and cannot be
+          // queried for prices via the API.
+          if (inst.assetClass !== "MORTGAGE_BONDS") continue;
+          // Skip market-maker (BB) and tap-offering (TAP) variants; the primary
+          // listing already represents the same ISIN and has the same price.
+          if (inst.fullName.endsWith(" BB") || inst.fullName.endsWith(" TAP")) continue;
           if (seen.has(inst.orderbookId)) continue;
           seen.add(inst.orderbookId);
           bonds.push({
@@ -75,22 +95,31 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
 }
 
 /**
- * Try to get the current bond rate for a bond from the Nasdaq Nordic summary endpoint.
+ * Try to get the current bond rate for a mortgage bond from the Nasdaq Nordic chart endpoint.
  * Returns null if the market is closed or data is unavailable.
+ *
+ * The chart endpoint returns `chartData.lastSalePrice` in the format "DKK 96.475".
+ * The summary endpoint (`/summary?assetClass=BONDS`) always returns `data: null` for
+ * mortgage bonds; the chart endpoint with `assetClass=MORTGAGE_BONDS` is the correct one.
  */
 async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promise<number | null> {
   try {
-    const res = await fetchFn(`${NASDAQ_API}/instruments/${orderbookId}/summary?assetClass=BONDS`, {
-      headers: NASDAQ_HEADERS,
-    });
+    const res = await fetchFn(
+      `${NASDAQ_API}/instruments/${orderbookId}/chart?assetClass=MORTGAGE_BONDS`,
+      { headers: NASDAQ_HEADERS },
+    );
     if (!res.ok) return null;
 
-    const data: { data: { lastPrice?: string | number } | null } = await res.json();
-    if (!data.data) return null;
+    const data: {
+      data: { chartData: { lastSalePrice?: string } | null } | null;
+    } = await res.json();
 
-    const raw = data.data.lastPrice;
-    if (raw == null) return null;
-    const parsed = typeof raw === "string" ? parseFloat(raw) : raw;
+    const lastSalePrice = data?.data?.chartData?.lastSalePrice;
+    if (!lastSalePrice) return null;
+
+    // Format is "DKK 96.475" — take the last whitespace-delimited token.
+    const priceStr = lastSalePrice.trim().split(/\s+/).pop() ?? "";
+    const parsed = parseFloat(priceStr);
     return isNaN(parsed) ? null : parsed;
   } catch {
     return null;
