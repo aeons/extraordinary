@@ -55,7 +55,7 @@ describe("calculateMortgage", () => {
     expect(result.totalInterestSavedSamePayment).toBeGreaterThan(0);
   });
 
-  it("saving more interest with same-payment option than same-term option", () => {
+  it("saves more interest with same-payment option than same-term option", () => {
     const result = calculateMortgage(baseInput);
     expect(result.totalInterestSavedSamePayment).toBeGreaterThan(result.totalInterestSavedSameTerm);
   });
