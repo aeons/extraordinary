@@ -8,23 +8,28 @@ describe("TAX_DEDUCTION_RATE", () => {
 });
 
 describe("calculateMortgage", () => {
+  // payment includes the fee; at bondRate 100 the net cash equals the debt reduction.
+  // payment=201_500, fee=1_500, bondRate=100 → netCash=200_000 → debtReduction=200_000.
   const baseInput = {
     remainingAmount: 2_000_000,
     remainingYears: 20,
     interestRate: 4,
     contributionRate: 0.6,
-    extraPayment: 200_000,
+    payment: 201_500,
+    bondRate: 100,
     fee: 1_500,
   };
 
-  it("reduces the remaining amount by the extra payment", () => {
+  it("reduces the remaining amount by the debt reduction", () => {
     const result = calculateMortgage(baseInput);
-    expect(result.newRemainingAmount).toBe(baseInput.remainingAmount - baseInput.extraPayment);
+    expect(result.newRemainingAmount).toBe(baseInput.remainingAmount - result.debtReduction);
   });
 
-  it("includes the fee in the total cost", () => {
+  it("subtracts the fee before calculating debt reduction", () => {
     const result = calculateMortgage(baseInput);
-    expect(result.totalCost).toBe(baseInput.extraPayment + baseInput.fee);
+    // netCash = payment - fee; debtReduction = netCash * 100 / bondRate
+    const expectedDebtReduction = ((baseInput.payment - baseInput.fee) * 100) / baseInput.bondRate;
+    expect(result.debtReduction).toBeCloseTo(expectedDebtReduction, 6);
   });
 
   it("lowers the quarterly payment when keeping the same term", () => {
@@ -60,7 +65,7 @@ describe("calculateMortgage", () => {
     expect(result.totalInterestSavedSamePayment).toBeGreaterThan(result.totalInterestSavedSameTerm);
   });
 
-  it("reduces annual interest after the extra payment", () => {
+  it("reduces annual interest after the extraordinary payment", () => {
     const result = calculateMortgage(baseInput);
     expect(result.newAnnualInterest).toBeLessThan(result.currentAnnualInterest);
   });
@@ -86,16 +91,16 @@ describe("calculateMortgage", () => {
     );
   });
 
-  it("handles zero extra payment (no change)", () => {
-    const result = calculateMortgage({ ...baseInput, extraPayment: 0, fee: 0 });
+  it("handles zero payment (no change)", () => {
+    const result = calculateMortgage({ ...baseInput, payment: 0, fee: 0 });
+    expect(result.debtReduction).toBe(0);
     expect(result.newRemainingAmount).toBe(baseInput.remainingAmount);
-    expect(result.totalCost).toBe(0);
     expect(result.quarterlyPaymentSaving).toBeCloseTo(0, 6);
     expect(result.quartersSaved).toBe(0);
   });
 
-  it("clamps new remaining amount to zero when extra payment exceeds balance", () => {
-    const result = calculateMortgage({ ...baseInput, extraPayment: 3_000_000 });
+  it("clamps new remaining amount to zero when payment exceeds balance", () => {
+    const result = calculateMortgage({ ...baseInput, payment: 3_000_000, fee: 0 });
     expect(result.newRemainingAmount).toBe(0);
     expect(result.newQuarterlyPaymentSameTerm).toBe(0);
     expect(result.newAnnualInterest).toBe(0);
@@ -106,7 +111,7 @@ describe("calculateMortgage", () => {
       ...baseInput,
       interestRate: 0,
       contributionRate: 0,
-      extraPayment: 200_000,
+      payment: 200_000,
       fee: 0,
     });
     expect(result.newRemainingAmount).toBe(1_800_000);
@@ -117,16 +122,56 @@ describe("calculateMortgage", () => {
   });
 
   it("returns sensible values for a small loan near end of term", () => {
+    // payment=10_200, fee=200, bondRate=100 → netCash=10_000 → debtReduction=10_000
     const result = calculateMortgage({
       remainingAmount: 50_000,
       remainingYears: 1,
       interestRate: 3,
       contributionRate: 0.5,
-      extraPayment: 10_000,
+      payment: 10_200,
+      bondRate: 100,
       fee: 200,
     });
     expect(result.newRemainingAmount).toBe(40_000);
-    expect(result.totalCost).toBe(10_200);
+    expect(result.debtReduction).toBe(10_000);
     expect(result.quarterlyPaymentSaving).toBeGreaterThan(0);
+  });
+
+  describe("bond rate", () => {
+    it("bond rate below par amplifies debt reduction (pay less, reduce more)", () => {
+      // bondRate 95: paying 95 DKK reduces debt by 100 DKK
+      // payment=95_000, fee=0, bondRate=95 → netCash=95_000 → debtReduction=100_000
+      const result = calculateMortgage({ ...baseInput, payment: 95_000, bondRate: 95, fee: 0 });
+      expect(result.debtReduction).toBeCloseTo(100_000, 4);
+    });
+
+    it("bond rate above par reduces debt reduction (pay more, reduce less)", () => {
+      // bondRate 105: paying 105 DKK reduces debt by 100 DKK
+      // payment=105_000, fee=0, bondRate=105 → netCash=105_000 → debtReduction≈100_000
+      const result = calculateMortgage({ ...baseInput, payment: 105_000, bondRate: 105, fee: 0 });
+      expect(result.debtReduction).toBeCloseTo(100_000, 4);
+    });
+
+    it("bond rate 100 (at par) gives debtReduction equal to net cash", () => {
+      const result = calculateMortgage({ ...baseInput, payment: 200_000, bondRate: 100, fee: 0 });
+      expect(result.debtReduction).toBeCloseTo(200_000, 6);
+    });
+
+    it("fee is subtracted from payment before applying bond rate", () => {
+      // payment=200_000, fee=5_000, bondRate=95 → netCash=195_000 → debtReduction=205_263.16
+      const result = calculateMortgage({
+        ...baseInput,
+        payment: 200_000,
+        bondRate: 95,
+        fee: 5_000,
+      });
+      expect(result.debtReduction).toBeCloseTo((195_000 * 100) / 95, 4);
+    });
+
+    it("lower bond rate leads to larger debt reduction for the same cash outlay", () => {
+      const atPar = calculateMortgage({ ...baseInput, payment: 200_000, bondRate: 100, fee: 0 });
+      const belowPar = calculateMortgage({ ...baseInput, payment: 200_000, bondRate: 90, fee: 0 });
+      expect(belowPar.debtReduction).toBeGreaterThan(atPar.debtReduction);
+    });
   });
 });
