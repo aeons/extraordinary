@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
+	import { base } from '$app/paths';
 	import { useSearchParams } from 'runed/kit';
 	import * as v from 'valibot';
 	import type { BondInfo, BondRatesResponse } from './api/bond-rates/+server';
@@ -39,7 +40,7 @@
 
 	async function loadBondRates() {
 		try {
-			const res = await fetch('/api/bond-rates');
+			const res = await fetch(`${base}/api/bond-rates`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data: BondRatesResponse = await res.json();
 			bonds = data.bonds;
