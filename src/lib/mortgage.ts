@@ -23,17 +23,26 @@ export interface MortgageInput {
   interestRate: number;
   /** Annual contribution rate (service fee) in percent, e.g. 0.6 for 0.6% (Bidragsrente) */
   contributionRate: number;
-  /** Extraordinary payment amount in DKK (Ekstraordinær betaling) */
-  extraPayment: number;
+  /**
+   * Total cash the user wants to spend on the extraordinary payment, including any fee.
+   * The fee is subtracted first; the remainder is used to purchase bonds.
+   */
+  payment: number;
+  /**
+   * Bond exchange rate: how much you pay for 100 DKK of face value.
+   * E.g. 95 means you pay 95,000 DKK to reduce the debt by 100,000 DKK.
+   * Defaults to 100 (at par).
+   */
+  bondRate: number;
   /** Optional fee for the extraordinary payment in DKK (Gebyr) */
   fee: number;
 }
 
 export interface MortgageResult {
+  /** Amount by which the mortgage debt decreases (face value of bonds purchased). */
+  debtReduction: number;
   /** New remaining amount after extraordinary payment */
   newRemainingAmount: number;
-  /** Total cost of the extraordinary payment (extraPayment + fee) */
-  totalCost: number;
 
   /** Current quarterly payment (principal + interest + bidrag) */
   currentQuarterlyPayment: number;
@@ -105,8 +114,15 @@ function quartersNeeded(principal: number, quarterlyRate: number, payment: numbe
  * Loans are assumed to be quarterly-paid annuity loans (annuitetslån).
  */
 export function calculateMortgage(input: MortgageInput): MortgageResult {
-  const { remainingAmount, remainingYears, interestRate, contributionRate, extraPayment, fee } =
-    input;
+  const {
+    remainingAmount,
+    remainingYears,
+    interestRate,
+    contributionRate,
+    payment,
+    bondRate,
+    fee,
+  } = input;
 
   const nQuarters = Math.round(remainingYears * 4);
   const quarterlyInterestRate = interestRate / 4 / 100;
@@ -119,8 +135,12 @@ export function calculateMortgage(input: MortgageInput): MortgageResult {
   const currentAnnualTaxDeduction = currentAnnualInterest * TAX_DEDUCTION_RATE;
 
   // ── After extraordinary payment ───────────────────────────────────────────
-  const newRemainingAmount = Math.max(0, remainingAmount - extraPayment);
-  const totalCost = extraPayment + fee;
+  // The user specifies the total cash they want to pay. The fee is deducted
+  // first, and the remaining cash is used to buy bonds at the given bond rate.
+  // debtReduction = netCash * 100 / bondRate  (e.g. bondRate 95: 95 DKK buys 100 DKK face value)
+  const netCash = Math.max(0, payment - fee);
+  const debtReduction = bondRate > 0 ? (netCash * 100) / bondRate : 0;
+  const newRemainingAmount = Math.max(0, remainingAmount - debtReduction);
 
   // Option 1: Same remaining term, lower quarterly payment
   const newQPaymentSameTerm = quarterlyPayment(
@@ -165,8 +185,8 @@ export function calculateMortgage(input: MortgageInput): MortgageResult {
   const taxDeductionChange = newAnnualTaxDeduction - currentAnnualTaxDeduction;
 
   return {
+    debtReduction,
     newRemainingAmount,
-    totalCost,
     currentQuarterlyPayment: currentQPayment,
     currentAnnualInterest,
     currentAnnualTaxDeduction,

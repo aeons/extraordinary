@@ -2,6 +2,7 @@
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
 	import { useSearchParams } from 'runed/kit';
 	import * as v from 'valibot';
+	import type { BondInfo, BondRatesResponse } from './api/bond-rates/+server';
 
 	// ── Schema (defines URL params, types, and fallback defaults) ────────────
 	const schema = v.object({
@@ -9,22 +10,52 @@
 		remainingYears: v.optional(v.fallback(v.number(), 20), 20),
 		interestRate: v.optional(v.fallback(v.number(), 4.0), 4.0),
 		contributionRate: v.optional(v.fallback(v.number(), 0.6), 0.6),
-		extraPayment: v.optional(v.fallback(v.number(), 200_000), 200_000),
+		payment: v.optional(v.fallback(v.number(), 200_000), 200_000),
+		bondRate: v.optional(v.fallback(v.number(), 100), 100),
 		fee: v.optional(v.fallback(v.number(), 0), 0)
 	});
 
 	// ── Reactive URL search params (non-default values only; no history spam) ─
 	const params = useSearchParams(schema, { pushHistory: false });
 
+	// ── Bond rates (fetched from the prerendered Nasdaq Nordic API endpoint) ──
+	let bonds = $state<BondInfo[]>([]);
+	let bondRatesFetchedAt = $state<string | null>(null);
+	let bondRatesError = $state<string | null>(null);
+	let selectedBondId = $state('');
+
+	async function loadBondRates() {
+		try {
+			const res = await fetch('/api/bond-rates');
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			const data: BondRatesResponse = await res.json();
+			bonds = data.bonds;
+			bondRatesFetchedAt = data.fetchedAt;
+			bondRatesError = null;
+		} catch (err) {
+			bondRatesError = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	function onBondSelect(event: Event) {
+		const select = event.currentTarget as HTMLSelectElement;
+		selectedBondId = select.value;
+		const bond = bonds.find((b) => b.orderbookId === selectedBondId);
+		if (bond?.bondRate != null) {
+			params.bondRate = bond.bondRate;
+		}
+	}
+
 	// ── Derived result ────────────────────────────────────────────────────────
 	let result = $derived(
-		params.remainingAmount > 0 && params.remainingYears > 0 && params.extraPayment > 0
+		params.remainingAmount > 0 && params.remainingYears > 0 && params.payment > 0
 			? calculateMortgage({
 					remainingAmount: params.remainingAmount,
 					remainingYears: params.remainingYears,
 					interestRate: params.interestRate,
 					contributionRate: params.contributionRate,
-					extraPayment: params.extraPayment,
+					payment: params.payment,
+					bondRate: params.bondRate,
 					fee: params.fee
 				})
 			: null
@@ -48,6 +79,13 @@
 
 	function sign(n: number): string {
 		return n > 0 ? '+' : '';
+	}
+
+	function formatDate(iso: string): string {
+		return new Intl.DateTimeFormat('da-DK', {
+			dateStyle: 'short',
+			timeStyle: 'short'
+		}).format(new Date(iso));
 	}
 </script>
 
@@ -130,17 +168,72 @@
 			<h2 class="section-divider">Ekstraordinær betaling</h2>
 
 			<div class="field">
-				<label for="extraPayment">Ekstraordinær betaling</label>
+				<label for="payment">Ekstraordinær betaling</label>
 				<div class="input-wrap">
 					<input
-						id="extraPayment"
+						id="payment"
 						type="number"
 						min="0"
 						step="10000"
-						bind:value={params.extraPayment}
+						bind:value={params.payment}
 					/>
 					<span class="unit">kr.</span>
 				</div>
+			</div>
+
+			<div class="field">
+				<label for="bondRate">Kurs</label>
+				<div class="bond-rate-row">
+					<div class="input-wrap bond-rate-input">
+						<input
+							id="bondRate"
+							type="number"
+							min="1"
+							max="130"
+							step="0.01"
+							bind:value={params.bondRate}
+						/>
+					</div>
+					<button
+						type="button"
+						class="fetch-btn"
+						onclick={loadBondRates}
+						aria-label={bondRatesFetchedAt ? 'Opdater kurser fra Nasdaq Copenhagen' : 'Hent aktuelle kurser fra Nasdaq Copenhagen'}
+						title="Hent aktuelle kurser fra Nasdaq Copenhagen"
+					>
+						{#if bondRatesFetchedAt}
+							↻ Opdater
+						{:else}
+							Hent kurser
+						{/if}
+					</button>
+				</div>
+
+				{#if bondRatesError}
+					<p class="bond-error">Kurser ikke tilgængelige – udfyld manuelt.</p>
+				{:else if bonds.length > 0}
+					<div class="bond-select-wrap">
+						<select
+							id="bondSelect"
+							class="bond-select"
+							aria-label="Vælg obligation for at hente aktuel kurs"
+							value={selectedBondId}
+							onchange={onBondSelect}
+						>
+							<option value="">– Vælg obligation –</option>
+							{#each bonds as bond}
+								<option value={bond.orderbookId}>
+									{bond.name}{bond.bondRate != null ? ` (kurs ${num(bond.bondRate, 2)})` : ''}
+								</option>
+							{/each}
+						</select>
+						{#if bondRatesFetchedAt}
+							<p class="bond-timestamp">
+								Opdateret: {formatDate(bondRatesFetchedAt)}
+							</p>
+						{/if}
+					</div>
+				{/if}
 			</div>
 
 			<div class="field">
@@ -188,9 +281,9 @@
 							<dt>Ny restgæld</dt>
 							<dd>{dkk(result.newRemainingAmount)}</dd>
 						</div>
-						<div class="stat">
-							<dt>Samlet betaling inkl. gebyr</dt>
-							<dd>{dkk(result.totalCost)}</dd>
+						<div class="stat positive">
+							<dt>Gæld reduceret med (kurs {num(params.bondRate, 2)})</dt>
+							<dd>{dkk(result.debtReduction)}</dd>
 						</div>
 					</dl>
 				</section>
@@ -419,6 +512,71 @@
 		font-size: 0.85rem;
 		white-space: nowrap;
 		border-left: 1.5px solid #cbd5e0;
+	}
+
+	/* ── Bond rate row ────────────────────────────────────────────────────── */
+	.bond-rate-row {
+		display: flex;
+		gap: 0.5rem;
+		align-items: stretch;
+	}
+
+	.bond-rate-input {
+		flex: 1;
+	}
+
+	.fetch-btn {
+		flex-shrink: 0;
+		padding: 0.55rem 0.75rem;
+		font-size: 0.85rem;
+		font-weight: 500;
+		border: 1.5px solid #cbd5e0;
+		border-radius: 8px;
+		background: #edf2f7;
+		color: #2d3748;
+		cursor: pointer;
+		white-space: nowrap;
+		transition:
+			background 0.15s,
+			border-color 0.15s;
+	}
+
+	.fetch-btn:hover {
+		background: #e2e8f0;
+		border-color: #a0aec0;
+	}
+
+	.bond-select-wrap {
+		margin-top: 0.5rem;
+	}
+
+	.bond-select {
+		width: 100%;
+		padding: 0.45rem 0.65rem;
+		font-size: 0.85rem;
+		border: 1.5px solid #cbd5e0;
+		border-radius: 8px;
+		background: #fff;
+		color: #1a202c;
+		cursor: pointer;
+	}
+
+	.bond-select:focus {
+		outline: none;
+		border-color: #3182ce;
+		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+	}
+
+	.bond-timestamp {
+		margin-top: 0.3rem;
+		font-size: 0.75rem;
+		color: #a0aec0;
+	}
+
+	.bond-error {
+		margin-top: 0.35rem;
+		font-size: 0.78rem;
+		color: #c53030;
 	}
 
 	/* ── Results grid ────────────────────────────────────────────────────── */
