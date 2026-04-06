@@ -27,3 +27,6 @@ jobs:
 
       - name: Format
         run: vp fmt --check
+
+      - name: Test
+        run: vp test
