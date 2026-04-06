@@ -74,7 +74,10 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
       const res = await fetchFn(`${NASDAQ_API}/search?searchText=${encodeURIComponent(term)}`, {
         headers: NASDAQ_HEADERS,
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.error(`[bond-rates] search "${term}" failed: HTTP ${res.status}`);
+        continue;
+      }
 
       const data: {
         data: Array<{
@@ -107,8 +110,8 @@ async function fetchBonds(fetchFn: typeof fetch): Promise<BondInfo[]> {
           });
         }
       }
-    } catch {
-      // Skip failed searches silently
+    } catch (err) {
+      console.error(`[bond-rates] search "${term}" threw:`, err);
     }
   }
 
@@ -129,7 +132,10 @@ async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promis
       `${NASDAQ_API}/instruments/${orderbookId}/chart?assetClass=MORTGAGE_BONDS`,
       { headers: NASDAQ_HEADERS },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[bond-rates] chart fetch for ${orderbookId} failed: HTTP ${res.status}`);
+      return null;
+    }
 
     const data: {
       data: { chartData: { lastSalePrice?: string } | null } | null;
@@ -142,7 +148,8 @@ async function fetchBondRate(fetchFn: typeof fetch, orderbookId: string): Promis
     const priceStr = lastSalePrice.trim().split(/\s+/).pop() ?? "";
     const parsed = parseFloat(priceStr);
     return isNaN(parsed) ? null : parsed;
-  } catch {
+  } catch (err) {
+    console.error(`[bond-rates] chart fetch for ${orderbookId} threw:`, err);
     return null;
   }
 }
