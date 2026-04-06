@@ -24,6 +24,17 @@
 	let bondRatesError = $state<string | null>(null);
 	let selectedBondId = $state('');
 
+	// ── Bond rate input display state ─────────────────────────────────────────
+	// Decoupled from params so clearing the input doesn't trigger the valibot
+	// fallback and snap the value back to 100 before the user finishes typing.
+	let bondRateDisplay = $state<number | undefined>(params.bondRate);
+
+	// Keep display in sync when params change from an external source (e.g. a
+	// bond is selected from the dropdown, or the URL changes).
+	$effect(() => {
+		bondRateDisplay = params.bondRate;
+	});
+
 	async function loadBondRates() {
 		try {
 			const res = await fetch('/api/bond-rates');
@@ -191,7 +202,16 @@
 							min="1"
 							max="130"
 							step="0.01"
-							bind:value={params.bondRate}
+							bind:value={bondRateDisplay}
+							oninput={() => {
+								if (
+									bondRateDisplay !== undefined &&
+									Number.isFinite(bondRateDisplay) &&
+									bondRateDisplay > 0
+								) {
+									params.bondRate = bondRateDisplay;
+								}
+							}}
 						/>
 					</div>
 					<button
