@@ -156,7 +156,6 @@
 						step="0.01"
 						bind:value={params.kurs}
 					/>
-					<span class="unit">kurs</span>
 				</div>
 			</div>
 
