@@ -193,7 +193,12 @@ describe("calculateMortgage", () => {
     });
 
     it("bondRateSavings equals debtReduction minus net cash", () => {
-      const result = calculateMortgage({ ...baseInput, payment: 200_000, bondRate: 95, fee: 5_000 });
+      const result = calculateMortgage({
+        ...baseInput,
+        payment: 200_000,
+        bondRate: 95,
+        fee: 5_000,
+      });
       const netCash = 200_000 - 5_000;
       expect(result.bondRateSavings).toBeCloseTo(result.debtReduction - netCash, 6);
     });
