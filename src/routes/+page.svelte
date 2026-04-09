@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { calculateMortgage, TAX_DEDUCTION_RATE } from '$lib/mortgage';
-	import { base } from '$app/paths';
 	import { useSearchParams } from 'runed/kit';
 	import * as v from 'valibot';
-	import type { BondInfo, BondRatesResponse } from './api/bond-rates/+server';
 
 	// ── Schema (defines URL params, types, and fallback defaults) ────────────
 	const schema = v.object({
@@ -18,47 +16,6 @@
 
 	// ── Reactive URL search params (non-default values only; no history spam) ─
 	const params = useSearchParams(schema, { pushHistory: false });
-
-	// ── Bond rates (fetched from the prerendered Nasdaq Nordic API endpoint) ──
-	let bonds = $state<BondInfo[]>([]);
-	let bondRatesFetchedAt = $state<string | null>(null);
-	let bondRatesError = $state<string | null>(null);
-	let selectedBondId = $state('');
-
-	// ── Bond rate input display state ─────────────────────────────────────────
-	// Decoupled from params so clearing the input doesn't trigger the valibot
-	// fallback and snap the value back to 100 before the user finishes typing.
-	// `undefined` represents an empty / in-progress input (number inputs yield
-	// undefined when the field is blank via bind:value).
-	let bondRateDisplay = $state<number | undefined>(params.bondRate);
-
-	// Keep display in sync when params change from an external source (e.g. a
-	// bond is selected from the dropdown, or the URL changes).
-	$effect(() => {
-		bondRateDisplay = params.bondRate;
-	});
-
-	async function loadBondRates() {
-		try {
-			const res = await fetch(`${base}/api/bond-rates`);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data: BondRatesResponse = await res.json();
-			bonds = data.bonds;
-			bondRatesFetchedAt = data.fetchedAt;
-			bondRatesError = null;
-		} catch (err) {
-			bondRatesError = err instanceof Error ? err.message : String(err);
-		}
-	}
-
-	function onBondSelect(event: Event) {
-		const select = event.currentTarget as HTMLSelectElement;
-		selectedBondId = select.value;
-		const bond = bonds.find((b) => b.orderbookId === selectedBondId);
-		if (bond?.bondRate != null) {
-			params.bondRate = bond.bondRate;
-		}
-	}
 
 	// ── Derived result ────────────────────────────────────────────────────────
 	let result = $derived(
@@ -93,13 +50,6 @@
 
 	function sign(n: number): string {
 		return n > 0 ? '+' : '';
-	}
-
-	function formatDate(iso: string): string {
-		return new Intl.DateTimeFormat('da-DK', {
-			dateStyle: 'short',
-			timeStyle: 'short'
-		}).format(new Date(iso));
 	}
 </script>
 
@@ -197,62 +147,16 @@
 
 			<div class="field">
 				<label for="bondRate">Kurs</label>
-				<div class="bond-rate-row">
-					<div class="input-wrap bond-rate-input">
-						<input
-							id="bondRate"
-							type="number"
-							min="1"
-							max="130"
-							step="0.01"
-							bind:value={bondRateDisplay}
-							oninput={() => {
-								if (bondRateDisplay !== undefined && bondRateDisplay > 0) {
-									params.bondRate = bondRateDisplay;
-								}
-							}}
-						/>
-					</div>
-					<button
-						type="button"
-						class="fetch-btn"
-						onclick={loadBondRates}
-						aria-label={bondRatesFetchedAt ? 'Opdater kurser fra Nasdaq Copenhagen' : 'Hent aktuelle kurser fra Nasdaq Copenhagen'}
-						title="Hent aktuelle kurser fra Nasdaq Copenhagen"
-					>
-						{#if bondRatesFetchedAt}
-							↻ Opdater
-						{:else}
-							Hent kurser
-						{/if}
-					</button>
+				<div class="input-wrap">
+					<input
+						id="bondRate"
+						type="number"
+						min="1"
+						max="130"
+						step="0.01"
+						bind:value={params.bondRate}
+					/>
 				</div>
-
-				{#if bondRatesError}
-					<p class="bond-error">Kurser ikke tilgængelige – udfyld manuelt.</p>
-				{:else if bonds.length > 0}
-					<div class="bond-select-wrap">
-						<select
-							id="bondSelect"
-							class="bond-select"
-							aria-label="Vælg obligation for at hente aktuel kurs"
-							value={selectedBondId}
-							onchange={onBondSelect}
-						>
-							<option value="">– Vælg obligation –</option>
-							{#each bonds as bond}
-								<option value={bond.orderbookId}>
-									{bond.name}{bond.bondRate != null ? ` (kurs ${num(bond.bondRate, 2)})` : ''}
-								</option>
-							{/each}
-						</select>
-						{#if bondRatesFetchedAt}
-							<p class="bond-timestamp">
-								Opdateret: {formatDate(bondRatesFetchedAt)}
-							</p>
-						{/if}
-					</div>
-				{/if}
 			</div>
 
 			<div class="field">
@@ -543,71 +447,6 @@
 		font-size: 0.85rem;
 		white-space: nowrap;
 		border-left: 1.5px solid #cbd5e0;
-	}
-
-	/* ── Bond rate row ────────────────────────────────────────────────────── */
-	.bond-rate-row {
-		display: flex;
-		gap: 0.5rem;
-		align-items: stretch;
-	}
-
-	.bond-rate-input {
-		flex: 1;
-	}
-
-	.fetch-btn {
-		flex-shrink: 0;
-		padding: 0.55rem 0.75rem;
-		font-size: 0.85rem;
-		font-weight: 500;
-		border: 1.5px solid #cbd5e0;
-		border-radius: 8px;
-		background: #edf2f7;
-		color: #2d3748;
-		cursor: pointer;
-		white-space: nowrap;
-		transition:
-			background 0.15s,
-			border-color 0.15s;
-	}
-
-	.fetch-btn:hover {
-		background: #e2e8f0;
-		border-color: #a0aec0;
-	}
-
-	.bond-select-wrap {
-		margin-top: 0.5rem;
-	}
-
-	.bond-select {
-		width: 100%;
-		padding: 0.45rem 0.65rem;
-		font-size: 0.85rem;
-		border: 1.5px solid #cbd5e0;
-		border-radius: 8px;
-		background: #fff;
-		color: #1a202c;
-		cursor: pointer;
-	}
-
-	.bond-select:focus {
-		outline: none;
-		border-color: #3182ce;
-		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
-	}
-
-	.bond-timestamp {
-		margin-top: 0.3rem;
-		font-size: 0.75rem;
-		color: #a0aec0;
-	}
-
-	.bond-error {
-		margin-top: 0.35rem;
-		font-size: 0.78rem;
-		color: #c53030;
 	}
 
 	/* ── Results grid ────────────────────────────────────────────────────── */
